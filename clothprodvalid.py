@@ -2,17 +2,19 @@ import pandas as pd
 
 print("----- Welcome to XYZ Fashions -----")
 
-# Predefined product list
-PRODUCTS = ["Saree", "Kurta", "Denims", "Night Suit", "Tops"]
+# Product master
+PRODUCTS = {
+    1: "Saree",
+    2: "Kurta",
+    3: "Denims",
+    4: "Night Suit",
+    5: "Tops"
+}
 
-print("""
-Products available in our shop:
-• Saree
-• Kurta
-• Denims
-• Night Suit
-• Tops
-""")
+def show_products():
+    print("\nSelect Product:")
+    for k, v in PRODUCTS.items():
+        print(f"{k}. {v}")
 
 while True:
 
@@ -22,22 +24,41 @@ Offers:
 2. Buy 1 and get 1 free
 3. Buy Products above 5000 & get 50% discount
 4. Buy 3 or more (same product) & get discount
+5. Exit
 """)
 
-    choice = int(input("Select offer (1–4): "))
+    try:
+        choice = int(input("Select offer (1–5): "))
+    except ValueError:
+        print("❌ Invalid input")
+        continue
+
+    if choice == 5:
+        print("Thank you! Billing exited.")
+        break
 
     data = {"Name": [], "Cost": [], "Price": []}
-    n = int(input("How many different product customer is buying? "))
+
+    try:
+        n = int(input("How many different products customer is buying? "))
+    except ValueError:
+        print("❌ Invalid number")
+        continue
 
     for i in range(n):
 
-        # ✅ Product name validation
+        # ---------- PRODUCT MENU ----------
         while True:
-            name = input(f"\nEnter name of product {i+1}: ").title()
-            if name in PRODUCTS:
-                break
-            else:
-                print("❌ Invalid product name. Please choose from:", PRODUCTS)
+            show_products()
+            try:
+                p_choice = int(input(f"Choose product {i+1} (1–5): "))
+                if p_choice in PRODUCTS:
+                    name = PRODUCTS[p_choice]
+                    break
+                else:
+                    print("❌ Invalid product selection")
+            except ValueError:
+                print("❌ Enter a number")
 
         qty = int(input(f"How many {name}s? "))
 
@@ -54,105 +75,78 @@ Offers:
     print("\n----- Billing Summary -----")
     print(df[["Name", "Price"]])
 
+    # ================= OFFER LOGIC =================
+
     if choice == 1:
-        discount_percent = float(input("Enter discount percentage: "))
-        discount_rate = discount_percent / 100
-
-        df["FinalPrice"] = df["Price"] * (1 - discount_rate)
-
+        discount = float(input("Enter discount percentage: ")) / 100
+        df["FinalPrice"] = df["Price"] * (1 - discount)
         final_price = round(df["FinalPrice"].sum(), 2)
-        total_cost = df["Cost"].sum()
-        profit = round(final_price - total_cost, 2)
+        profit = round(final_price - df["Cost"].sum(), 2)
 
     elif choice == 2:
-        print("\nSelect Primary Item:")
         print(df[["Name", "Price"]])
+        p = int(input("Select primary item row number: ")) - 1
+        o = int(input("Select free item row number: ")) - 1
 
-        p = int(input("Enter row number: ")) - 1
-        primary_item = df.iloc[p]
+        primary = df.iloc[p]
+        free = df.iloc[o]
 
-        print("\nSelect Offer Item:")
-        print(df[["Name", "Price"]])
-
-        o = int(input("Enter row number: ")) - 1
-        offer_item = df.iloc[o]
-
-        final_price = primary_item["Price"]
-        profit = final_price - (primary_item["Cost"] + offer_item["Cost"])
+        final_price = primary["Price"]
+        profit = final_price - (primary["Cost"] + free["Cost"])
 
     elif choice == 3:
-        bill_amount = df["Price"].sum()
-        print(f"\nCurrent total bill: ₹{bill_amount}")
+        bill = df["Price"].sum()
+        print(f"Current Bill: ₹{bill}")
 
-        while bill_amount < 5000:
-            print("\nBill amount less than 5000 – please add more items")
-            n_add = int(input("How many different items to add? "))
+        while bill < 5000:
+            print("Bill < 5000, add more items")
 
-            for i in range(n_add):
+            show_products()
+            p_choice = int(input("Select product (1–5): "))
+            name = PRODUCTS[p_choice]
 
-                # ✅ Validation again for added items
-                while True:
-                    name = input(f"\nEnter name of item {i+1}: ").title()
-                    if name in PRODUCTS:
-                        break
-                    else:
-                        print("❌ Invalid product name. Choose from:", PRODUCTS)
+            qty = int(input(f"How many {name}s? "))
 
-                qty = int(input(f"How many {name}s? "))
+            for j in range(qty):
+                cost = float(input(f"Enter cost price for {name}: ₹"))
+                price = float(input(f"Enter selling price for {name}: ₹"))
 
-                for j in range(qty):
-                    cost = float(input(f"Enter cost price for {name} unit {j+1}: ₹"))
-                    price = float(input(f"Enter selling price for {name} unit {j+1}: ₹"))
+                df.loc[len(df)] = [name, cost, price]
+                bill += price
 
-                    df.loc[len(df)] = [name, cost, price]
-                    bill_amount += price
+            print(f"Updated Bill: ₹{bill}")
 
-            print(f"Current total bill: ₹{bill_amount}")
-
-        final_price = round(bill_amount * 0.5, 2)
+        final_price = round(bill * 0.5, 2)
         profit = 0
 
     elif choice == 4:
-        discount_percent = float(input("Enter discount percentage for Buy 3 offer: "))
-        discount_rate = discount_percent / 100
-
+        discount = float(input("Enter discount percentage: ")) / 100
         final_price = 0
         total_cost = df["Cost"].sum()
 
-        grouped = df.groupby("Name")
-
-        print("\nOffer Evaluation:")
-
-        for product, group in grouped:
-            unit_count = len(group)
-
-            if unit_count < 3:
-                print(f"{product}: Quantity {unit_count} — offer not applied")
-                final_price += group["Price"].sum()
+        for product, group in df.groupby("Name"):
+            if len(group) >= 3:
+                final_price += (group["Price"] * (1 - discount)).sum()
             else:
-                print(f"{product}: Quantity {unit_count} — discount applied")
-                final_price += (group["Price"] * (1 - discount_rate)).sum()
+                final_price += group["Price"].sum()
 
         final_price = round(final_price, 2)
         profit = round(final_price - total_cost, 2)
 
-    else:
-        print("Invalid choice")
-        continue
+    # ================= RESULT =================
 
     if profit < 0:
         print("❌ Loss detected – offer not allowed")
     elif profit == 0:
         print(f"Customer Pays: ₹{final_price}")
         print("✔ No Profit, No Loss")
-        print("✔ Inventory cleared")
     else:
         print(f"Customer Pays: ₹{final_price}")
         print(f"✔ Profit Earned: ₹{profit}")
 
     print("✔ Business strategy satisfied")
 
-    again = input("\nDo you want to apply another offer? (y/n): ").lower()
+    again = input("\nDo you want to continue billing? (y/n): ").lower()
     if again != "y":
         print("Thank you! Billing completed.")
         break
